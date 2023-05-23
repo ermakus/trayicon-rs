@@ -2,6 +2,7 @@ use super::{msgs, wchar::wchar_array, winhicon::WinHIcon};
 use std::fmt::Debug;
 use winapi::shared::windef::HWND;
 
+#[cfg_attr(target_arch = "x86", repr(packed))]
 /// Purpose of this struct is to retain NotifyIconDataW and remove it on drop
 pub struct WinNotifyIcon {
     winhicon: WinHIcon,
@@ -19,9 +20,8 @@ impl WinNotifyIcon {
             nid: unsafe { std::mem::zeroed() },
         };
         if let Some(tooltip) = tooltip {
-            let mut buf: [u16;128] = [0; 128];
-            wchar_array(tooltip, &mut buf);
-            icon.nid.szTip = buf;
+            let sz_tip = std::ptr::addr_of_mut!(icon.nid.szTip);
+            wchar_array(tooltip, unsafe { &mut *sz_tip });
         }
         icon.nid.cbSize = std::mem::size_of::<winapi::um::shellapi::NOTIFYICONDATAW>() as u32;
         icon.nid.uID = unsafe { ICON_ID };
@@ -61,9 +61,8 @@ impl WinNotifyIcon {
     }
 
     pub fn set_tooltip(&mut self, tooltip: &str) -> bool {
-        let mut buf: [u16;128] = [0; 128];
-        wchar_array(tooltip, &mut buf);
-        self.nid.szTip = buf;
+        let sz_tip = std::ptr::addr_of_mut!(self.nid.szTip);
+        wchar_array(tooltip, unsafe { &mut *sz_tip });
         let res = unsafe {
             winapi::um::shellapi::Shell_NotifyIconW(winapi::um::shellapi::NIM_MODIFY, &mut self.nid)
         };
